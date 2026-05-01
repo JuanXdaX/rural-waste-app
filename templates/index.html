@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    :root {
+        --sage-green: #7D9D82;
+        --sage-dark: #5F7A63;
+        --soft-cream: #FDFBF7;
+        --deep-charcoal: #3C4043;
+        --border-color: #EAE2D6;
+        --action-blue: #5D87A8; 
+        --action-red: #C94C4C;
+    }
+
+    body { background-color: var(--soft-cream); color: var(--deep-charcoal); font-family: 'Poppins', sans-serif; }
+    
+    .sticky-sidebar { position: sticky; top: 20px; }
+    
+    .card-minimal {
+        background: #ffffff;
+        border: none;
+        border-radius: 25px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        border-bottom: 3px solid rgba(125, 157, 130, 0.2);
+        margin-bottom: 1.5rem;
+        padding: 1.2rem;
+    }
+
+    /* CONTENEDOR CRÍTICO: Evita el crecimiento infinito */
+    .chart-container {
+        position: relative;
+        height: 140px; /* Altura fija controlada */
+        width: 100%;
+    }
+
+    .btn-register-main {
+        background: linear-gradient(135deg, var(--sage-green) 0%, var(--sage-dark) 100%);
+        color: white !important;
+        border: none;
+        border-radius: 25px;
+        padding: 15px 25px;
+        font-weight: 700;
+        width: 100%;
+        box-shadow: 0 8px 16px rgba(125, 157, 130, 0.3);
+        transition: 0.3s;
+        text-transform: uppercase;
+    }
+    .btn-register-main:hover { transform: translateY(-2px); box-shadow: 0 12px 20px rgba(125, 157, 130, 0.4); }
+
+    .btn-action-edit { background-color: var(--action-blue); color: white !important; border-radius: 8px; padding: 8px 15px; border: none; font-weight: 600; font-size: 0.85rem; }
+    .btn-action-delete { background-color: var(--action-red); color: white !important; border-radius: 8px; padding: 8px 15px; border: none; font-weight: 600; font-size: 0.85rem; }
+
+    .form-control-minimal {
+        border: none;
+        border-bottom: 2px solid var(--border-color);
+        background: transparent;
+        border-radius: 25px;
+        padding: 10px 0;
+    }
+    .form-control-minimal:focus { border-bottom-color: var(--sage-green); box-shadow: none; outline: none; }
+
+    .table td { border-bottom: 1px solid var(--border-color); padding: 1.2rem; background: white; }
+</style>
+
+<div class="container-fluid py-5 px-4">
+    <div class="row">
+        <div class="col-lg-3">
+            <div class="sticky-sidebar">
+                <div class="text-center mb-4">
+                    <h4 class="fw-bold" style="color: var(--sage-green);">ECO MONITOR</h4>
+                </div>
+                
+                <div class="card-minimal">
+                    <p class="small text-muted fw-bold mb-2">AHORRO CO2</p>
+                    <div class="chart-container">
+                        <canvas id="chartImpacto"></canvas>
+                    </div>
+                </div>
+
+                <div class="card-minimal">
+                    <p class="small text-muted fw-bold mb-2">VOLUMEN (KG)</p>
+                    <div class="chart-container">
+                        <canvas id="chartVolumen"></canvas>
+                    </div>
+                </div>
+
+                <button class="btn btn-register-main" data-bs-toggle="modal" data-bs-target="#modalAgregar">
+                    <i class="fas fa-plus-circle me-2"></i> Registrar Residuo
+                </button>
+            </div>
+        </div>
+
+        <div class="col-lg-9 ps-lg-5">
+            <h3 class="fw-bold mb-4">Inventario de Pasivos Químicos</h3>
+            <div class="card-minimal p-0 border-0 shadow-none bg-transparent">
+                <table class="table align-middle">
+                    <thead>
+                        <tr class="text-muted small">
+                            <th>CATEGORÍA</th>
+                            <th>CANTIDAD</th>
+                            <th>AHORRO</th>
+                            <th class="text-center">GESTIÓN</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in reportes %}
+                        <tr>
+                            <td><span class="fw-bold">{{ r.tipo_quimico }}</span></td>
+                            <td>{{ r.cantidad }} kg</td>
+                            <td><span class="badge" style="background-color: rgba(125, 157, 130, 0.1); color: var(--sage-green); padding: 8px 12px;">{{ r.impacto_co2 }} kg CO2</span></td>
+                            <td class="text-center">
+                                <button class="btn btn-action-edit me-1" onclick="abrirEditar('{{ r.id }}', '{{ r.tipo_quimico }}', '{{ r.cantidad }}')">
+                                    <i class="fas fa-edit"></i> Editar
+                                </button>
+                                <button class="btn btn-action-delete" onclick="confirmarEliminar('{{ r.id }}')">
+                                    <i class="fas fa-trash"></i> Borrar
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalAgregar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-body p-5">
+                <h4 class="fw-bold mb-4">Registrar Nuevo Residuo</h4>
+                <form action="{{ url_for('agregar_reporte') }}" method="POST">
+                    <div class="mb-3">
+                        <label class="small text-muted fw-bold">TIPO DE QUÍMICO</label>
+                        <select class="form-select form-control-minimal" name="tipo_quimico" required>
+                            <option value="Pesticidas Organoclorados">Pesticidas Organoclorados</option>
+                            <option value="Fertilizantes Nitrogenados">Fertilizantes Nitrogenados</option>
+                            <option value="Aceites de Maquinaria">Aceites de Maquinaria</option>
+                            <option value="Envases Plásticos">Envases Plásticos</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="small text-muted fw-bold">CANTIDAD (KG)</label>
+                        <input type="number" step="0.1" name="cantidad" class="form-control-minimal w-100" required>
+                    </div>
+                    <button type="submit" class="btn btn-register-main">Guardar Registro</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEditar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-body p-5">
+                <h4 class="fw-bold mb-4">Modificar Registro</h4>
+                <form id="formEditar" method="POST">
+                    <div class="mb-3">
+                        <label class="small text-muted fw-bold">TIPO DE QUÍMICO</label>
+                        <select id="edit_tipo" class="form-select form-control-minimal" name="tipo_quimico">
+                            <option value="Pesticidas Organoclorados">Pesticidas Organoclorados</option>
+                            <option value="Fertilizantes Nitrogenados">Fertilizantes Nitrogenados</option>
+                            <option value="Aceites de Maquinaria">Aceites de Maquinaria</option>
+                            <option value="Envases Plásticos">Envases Plásticos</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="small text-muted fw-bold">CANTIDAD (KG)</label>
+                        <input id="edit_cantidad" type="number" step="0.1" name="cantidad" class="form-control-minimal w-100">
+                    </div>
+                    <button type="submit" class="btn btn-register-main" style="background: var(--action-blue);">Actualizar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalEliminar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg text-center p-5">
+            <div class="text-danger mb-4"><i class="fas fa-exclamation-triangle fa-4x"></i></div>
+            <h4 class="fw-bold">¿Confirmar eliminación?</h4>
+            <p class="text-muted mb-5">Esta acción no se puede deshacer.</p>
+            <div class="d-flex gap-3">
+                <button class="btn btn-light w-100 py-3 fw-bold" data-bs-dismiss="modal">CANCELAR</button>
+                <a id="linkEliminar" href="#" class="btn btn-danger w-100 py-3 fw-bold shadow">ELIMINAR</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    function abrirEditar(id, tipo, cantidad) {
+        document.getElementById('formEditar').action = "/editar/" + id;
+        document.getElementById('edit_tipo').value = tipo;
+        document.getElementById('edit_cantidad').value = cantidad;
+        new bootstrap.Modal(document.getElementById('modalEditar')).show();
+    }
+
+    function confirmarEliminar(id) {
+        document.getElementById('linkEliminar').href = "/eliminar/" + id;
+        new bootstrap.Modal(document.getElementById('modalEliminar')).show();
+    }
+
+    // CONFIGURACIÓN DE GRÁFICOS
+    const commonOpt = { 
+        responsive: true, 
+        maintainAspectRatio: false, // Fundamental para evitar crecimiento infinito
+        plugins: { legend: { display: false } }, 
+        scales: { 
+            x: { display: false }, 
+            y: { display: false, beginAtZero: true } 
+        } 
+    };
+
+    const labels = [{% for r in reportes %}'{{r.id}}',{% endfor %}];
+
+    new Chart(document.getElementById('chartImpacto'), {
+        type: 'line',
+        data: { 
+            labels: labels, 
+            datasets: [{ 
+                data: [{% for r in reportes %}{{r.impacto_co2}},{% endfor %}], 
+                borderColor: '#7D9D82', 
+                fill: true, 
+                backgroundColor: 'rgba(125, 157, 130, 0.1)', 
+                tension: 0.4 
+            }] 
+        },
+        options: commonOpt
+    });
+
+    const dataVolumen = [{% for r in reportes %}{{r.cantidad}},{% endfor %}];
+    new Chart(document.getElementById('chartVolumen'), {
+        type: 'bar',
+        data: { 
+            labels: labels, 
+            datasets: [{ 
+                data: dataVolumen, 
+                backgroundColor: '#6B8A70', 
+                borderRadius: 4,
+                barPercentage: 0.7
+            }] 
+        },
+        options: {
+            ...commonOpt,
+            scales: {
+                x: { display: false },
+                y: { 
+                    display: false, 
+                    beginAtZero: true,
+                    suggestedMax: dataVolumen.length > 0 ? Math.max(...dataVolumen) * 1.2 : 10
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
